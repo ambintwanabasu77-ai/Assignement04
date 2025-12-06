@@ -1,119 +1,112 @@
 import React, { useState } from "react";
+import "./App.css";
 
 function App() {
-  const [characterName, setCharacterName] = useState("");
+  const [searchName, setSearchName] = useState("");
+  const [uploadName, setUploadName] = useState("");
   const [imageUrl, setImageUrl] = useState(null);
   const [selectedFile, setSelectedFile] = useState(null);
-  const [message, setMessage] = useState("");
+  const [searchMessage, setSearchMessage] = useState("");
+  const [uploadMessage, setUploadMessage] = useState("");
 
-
+  // ================================
+  // Search Image
+  // ================================
   const fetchImage = () => {
-    if (!characterName) {
-      setMessage("Please enter a character name");
+    if (!searchName.trim()) {
+      setSearchMessage("Please enter a name");
       return;
     }
 
-    fetch(`http://localhost:5000/api/getImage?name=${characterName.toLowerCase()}`)
+    setSearchMessage("");
+
+    fetch(`http://localhost:5000/api/getImage?name=${searchName}`)
       .then((res) => res.json())
       .then((data) => {
         if (data.url) {
-          setImageUrl(`http://localhost:5000${data.url}`);
-          setMessage("");
+          // Add cache-busting query to force browser reload
+          setImageUrl(`http://localhost:5000${data.url}?t=${Date.now()}`);
+          setSearchMessage("");
         } else {
           setImageUrl(null);
-          setMessage(data.error || "Image not found");
+          setSearchMessage("Image not found");
         }
       })
-      .catch((err) => {
+      .catch(() => {
         setImageUrl(null);
-        setMessage("Error fetching image");
-        console.error(err);
+        setSearchMessage("Error fetching image");
       });
   };
 
-  // Handle file selection
-  const handleFileChange = (e) => {
-    setSelectedFile(e.target.files[0]);
-  };
-
-  // Upload new image
-  const handleUpload = () => {
-    if (!characterName) {
-      setMessage("Please enter a character name");
+  // ================================
+  // Upload Image
+  // ================================
+  const uploadImage = () => {
+    if (!uploadName.trim()) {
+      setUploadMessage("Please enter a name before uploading");
       return;
     }
     if (!selectedFile) {
-      setMessage("Please select a file to upload");
+      setUploadMessage("Please select a file");
       return;
     }
 
     const formData = new FormData();
     formData.append("file", selectedFile);
 
-    fetch(`http://localhost:5000/api/upload?name=${characterName.toLowerCase()}`, {
+    fetch(`http://localhost:5000/api/upload?name=${uploadName}`, {
       method: "POST",
       body: formData,
     })
       .then((res) => res.json())
       .then((data) => {
         if (data.message) {
-          setMessage(data.message);
+          setUploadMessage("Uploaded successfully!");
           setSelectedFile(null);
-          fetchImage(); // refresh image automatically
+          setUploadName("");
+          // Show uploaded image immediately if it matches current search
+          if (searchName === uploadName) {
+            setImageUrl(`http://localhost:5000${data.url}?t=${Date.now()}`);
+            setSearchMessage("");
+          }
         } else {
-          setMessage(data.error || "Upload failed");
+          setUploadMessage("Upload failed");
         }
       })
-      .catch((err) => {
-        setMessage("Upload error");
-        console.error(err);
-      });
+      .catch(() => setUploadMessage("Upload error"));
   };
 
   return (
-    <div style={{ maxWidth: "600px", margin: "20px auto", fontFamily: "Arial" }}>
-      <h2>Character Image Search</h2>
+    <div className="container">
+      <h2>Search Image</h2>
       <input
         type="text"
-        placeholder="Enter character name"
-        value={characterName}
-        onChange={(e) => setCharacterName(e.target.value)}
-        style={{ padding: "8px", width: "60%" }}
+        placeholder="Enter name"
+        value={searchName}
+        onChange={(e) => setSearchName(e.target.value)}
       />
-      <button onClick={fetchImage} style={{ padding: "8px 12px", marginLeft: "10px" }}>
-        Search
-      </button>
-
-      {message && <p style={{ color: "red" }}>{message}</p>}
-
+      <button onClick={fetchImage}>Search</button>
+      <p style={{ color: "red" }}>{searchMessage}</p>
       {imageUrl && (
-        <div style={{ marginTop: "20px" }}>
-          <img src={imageUrl} alt={characterName} style={{ maxWidth: "100%" }} />
+        <div className="image-box">
+          <img src={imageUrl} alt="Image" style={{ width: "200px" }} />
         </div>
       )}
 
-      <hr style={{ margin: "30px 0" }} />
+      <hr />
 
-      <h2>Upload New Image</h2>
+      <h2>Upload Image</h2>
       <input
         type="text"
-        placeholder="Enter character name"
-        value={characterName}
-        onChange={(e) => setCharacterName(e.target.value)}
-        style={{ padding: "8px", width: "60%" }}
+        placeholder="Enter name"
+        value={uploadName}
+        onChange={(e) => setUploadName(e.target.value)}
       />
-      <br />
-      <input
-        type="file"
-        onChange={handleFileChange}
-        style={{ marginTop: "10px", marginBottom: "10px" }}
-      />
-      <br />
-      <button onClick={handleUpload} style={{ padding: "8px 12px" }}>
-        Upload
-      </button>
-
-      {message && <p style={{ color: "green", marginTop: "10px" }}>{message}</p>}
+      <input type="file" onChange={(e) => setSelectedFile(e.target.files[0])} />
+      <button onClick={uploadImage}>Upload</button>
+      <p style={{ color: uploadMessage.includes("success") ? "green" : "red" }}>
+        {uploadMessage}
+      </p>
     </div>
   );
 }
